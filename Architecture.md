@@ -1,13 +1,20 @@
-# System Architecture
+# System Architecture: TestLoad Engine
 
-This is a simple overview of how TestLoad works under the hood.
+This document outlines the architecture of the TestLoad API Engine, designed specifically to be stress-tested and optimized for high-concurrency traffic.
 
-## The Data Flow
-1. **Frontend (React):** The user fills out a simple form specifying what kind of data they want in their API   (e.g., asking for 'Name' and 'Email').
-2. **Backend (Express):** The server receives this request and saves the "blueprint" of this API into the databse
-3. **Database (MongoDB):** STores the blueprint and assigns a unique URL (slug) for the API.
-4. **Data Generation:** When someone visits the new API URL, the Express server reads the blueprint from MongoDB, generates random fake data matching those rules, and sends it back as JSON.
+## Phase 1: The Vanilla Flow (Baseline)
+1. **Frontend (React):** User defines the API blueprint (e.g., 'Name', 'Age').
+2. **Backend (Express):** Receives the blueprint and validates it.
+3. **Database (MongoDB):** Stores the blueprint and generates a unique URL (slug).
+4. **Data Generation:** On GET request, Express fetches the blueprint from MongoDB, generates 10 random fake records via Faker.js, and returns JSON.
+*Bottleneck:* Single-threaded Node.js chokes on simultaneous MongoDB I/O and heavy CPU generation under load.
 
- ## Core Files
-- `server.js`: The main engine that starts the server and handles routing.
-- `models/Endpoint.js`: The MongoDB schema defining how an API blueprint is saved in the database.
+## Phase 2: The Data Optimization (Redis)
+Objective: Bypass repetitive Database network calls and redundant CPU generation.
+1. **In-Memory Caching:** When a URL is hit the first time, data is generated and a copy is stored in Redis (RAM).
+2. **Cache Hit:** Subsequent requests for the same URL completely bypass MongoDB and Faker.js. The Express server serves the pre-generated data directly from RAM at sub-millisecond speed.
+
+## Phase 3: The Compute Optimization (PM2)
+Objective: Prevent the single Node.js event loop from freezing under heavy connection requests.
+1. **Horizontal Scaling (Clustering):** PM2 duplicates the single Node.js server instance across all available CPU cores on the machine.
+2. **Load Balancing:** Incoming traffic is automatically distributed among multiple Node.js worker threads, drastically increasing the system's capacity to handle concurrent users without timing out.

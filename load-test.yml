@@ -1,0 +1,16 @@
+config:
+  target: "http://localhost:5000"
+  phases:
+    - duration: 10
+      arrivalRate: 10
+      name: "Warm up the Event Loop"
+    - duration: 30
+      arrivalRate: 50
+      rampTo: 300
+      name: "Spike phase - Choke the DB and Server"
+
+scenarios:
+  - name: "Fetch Fake API Data"
+    flow:
+      - get:
+          url: "/api/v1/mock/my-test-users-32996"
